@@ -1,3 +1,5 @@
+module SS = Set.Make(String)
+
 type expr =
   | Const of int
   | Var   of string
@@ -17,7 +19,7 @@ type stmt =
   | Write  of expr
   | Assign of string * expr
   | Seq    of stmt * stmt
-                       
+
 let run input stmt =
   let rec run' ((state, input, output) as c) stmt =
     let state' x = List.assoc x state in
@@ -32,7 +34,22 @@ let run input stmt =
   in
   let (_, _, result) = run' ([], input, []) stmt in
   result
-    
+
+let rec collect_vars stmt =
+  let rec collect_vars_expr expr =
+    match expr with
+    | Const _ -> SS.empty
+    | Var s -> SS.singleton s
+    | Add (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Mul (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+  in
+  match stmt with
+  | Skip -> SS.empty
+  | Seq (l, r) -> SS.union (collect_vars l) (collect_vars r)
+  | Assign (x, e) -> SS.union (SS.singleton x) (collect_vars_expr e)
+  | Write e -> collect_vars_expr e
+  | Read x -> SS.singleton x
+
 type instr =
   | S_READ
   | S_WRITE
@@ -88,7 +105,7 @@ let rec compile_stmt stmt =
   | Write   e     -> compile_expr e @ [S_WRITE]
   | Seq    (l, r) -> compile_stmt l @ compile_stmt r
 
-let x86regs = [|"%eax"; "%ebx"; "%ecx"; "%edx"; "%esi"; "%edi"|]
+let x86regs = [|"%esp"; "%eax"; "%ebx"; "%ecx"; "%edx"; "%esi"; "%edi"|]
 let num_of_regs = Array.length x86regs
 let word_size = 4
 
@@ -96,13 +113,14 @@ type opnd = R of int | S of int | M of string | L of int
 
 let allocate stack =
   match stack with
-  | []                              -> R 0
+  | []                              -> R 3 (* preserve esp, eax and ebx for stuff :) *)
   | (S n)::_                        -> S (n+1)
   | (R n)::_ when n < num_of_regs-1 -> R (n+1)
   | _                               -> S 0
 
-type x86instr =
+type x86instr = (* src -> dest *)
   | X86Add  of opnd * opnd
+  | X86Sub  of opnd * opnd
   | X86Mul  of opnd * opnd
   | X86Mov  of opnd * opnd
   | X86Push of opnd
@@ -111,18 +129,52 @@ type x86instr =
   | X86Call of string
 
 let x86compile : instr list -> x86instr list = fun code ->
+  let x86addStack s =
+    match s with
+    | S _ -> [X86Sub (L 4, R 0)]
+    | _   -> []
+  in
+  let x86subStack s =
+    match s with
+    | S _ -> [X86Add (L 4, R 0)]
+    | _   -> []
+  in
   let rec x86compile' stack code =
     match code with
     | []       -> []
     | i::code' ->
        let (stack', x86code) =
          match i with
-         | S_READ   -> ([R 0], [X86Call "read"])
+         | S_READ   ->
+           let s = allocate stack in
+           (s::stack, [X86Call "read"; X86Mov (R 1, s)] @ x86addStack s)
+         | S_WRITE  ->
+           let s::stack' = stack in
+           (stack', [X86Push s; X86Call "write"; X86Add (L 4, R 0)] @ x86subStack s)
          | S_PUSH n ->
-            let s = allocate stack in
-            (s::stack, [X86Mov (L n, s)])
+           let s = allocate stack in
+           (s::stack, [X86Mov (L n, s)] @ x86addStack s)
+         | S_LD x ->
+           let s = allocate stack in
+           (s::stack, [X86Mov (M x, s)] @ x86addStack s)
+         | S_ST x ->
+           let s::stack' = stack in
+           (stack', [X86Mov (s, M x)] @ x86subStack s)
+         | S_ADD ->
+           let y::x::stack' = stack in
+           let res = match x with
+           | R _ -> (x::stack', [X86Add (y, x)] @ x86subStack y)
+           | _   -> (x::stack', [X86Mov (x, R 1); X86Add (y, R 1); X86Mov (R 1, x)] @ x86subStack y)
+           in res
+         | S_MUL ->
+           let y::x::stack' = stack in
+           let res = match x with
+           | R _ -> (x::stack', [X86Mul (y, x)] @ x86subStack y)
+           | _   -> (x::stack', [X86Mov (x, R 1); X86Mul (y, R 1); X86Mov (R 1, x)] @ x86subStack y)
+           in res
        in
        x86code @ x86compile' stack' code'
   in
-  x86compile' [] code
-                                         
+  (*store stack base in %rbx*)
+  (X86Mov (R 0, R 2))::x86compile' [] code
+
