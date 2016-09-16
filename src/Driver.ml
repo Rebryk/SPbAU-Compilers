@@ -64,32 +64,31 @@ let _ =
   let [r] = run [3; 4] p in
   Printf.printf "%d\n" r
 *)
+let rec pr_op opnd =
+	match opnd with
+	| R n -> x86regs.(n)
+	| S o -> Printf.sprintf "%d(%s)" ((-4) * o) (pr_op x86ebp)
+	| M s -> s
+	| L n -> Printf.sprintf "$%d" n
+
 let _ =
-  let _ = Printf.printf "\t.extern read\n\t.extern write\n\t.global main\n\n\t.text\n" in
-  let _ = Printf.printf "main:\n" in
-  Printf.printf ""
-  let pr_op opnd =
-    match opnd with
-    | R n -> x86regs.(n)
-    | S o -> Printf.sprintf "%d(%%ebx)" ((-4) * o)
-    | M s -> s
-    | L n -> Printf.sprintf "$%d" n
-  in
-  let vars = collect_vars p in
-  let stack_p = compile_stmt p in
-  let x86_p = x86compile stack_p in
-  let _ = List.iter (fun instr ->
+	let vars = collect_vars p in
+	let code = x86compile (compile_stmt p) in
+
+  Printf.printf "\t.extern read\n\t.extern write\n\t.global main\n\n\t.text\n";
+  Printf.printf "main:\n";
+  List.iter (fun instr ->
     match instr with
     | X86Add (o1, o2) -> Printf.printf "\tADDL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
     | X86Sub (o1, o2) -> Printf.printf "\tSUBL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
     | X86Mul (o1, o2) -> Printf.printf "\tIMULL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
     | X86Mov (o1, o2) -> Printf.printf "\tMOVL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
-    | X86Push o1 -> Printf.printf "\tPUSHL\t%s\n" (pr_op o1)
-    | X86Pop o1 -> Printf.printf "\tPOPL\t%s\n" (pr_op o1)
-    | X86Call s -> Printf.printf "\tCALL\t%s\n" s
-    | X86Ret -> Printf.printf "\tRET\n"
-  ) x86_p in
-  let _ = Printf.printf "\tRET\n\n" in
+    | X86Push o1      -> Printf.printf "\tPUSHL\t%s\n" (pr_op o1)
+    | X86Pop o1       -> Printf.printf "\tPOPL\t%s\n" (pr_op o1)
+    | X86Call s       -> Printf.printf "\tCALL\t%s\n" s
+    | X86Ret          -> Printf.printf "\tRET\n"
+  ) code;
+  Printf.printf "\tXORL\t%s,\t%s\nRET\n\n" (pr_op x86eax) (pr_op x86eax);
   SS.iter (fun var ->
     Printf.printf "\t.comm %s 4\n" var
   ) vars
