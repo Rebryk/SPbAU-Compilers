@@ -4,14 +4,20 @@ type expr =
   | Const of int
   | Var   of string
   | Add   of expr * expr
+  | Sub   of expr * expr
   | Mul   of expr * expr
+  | Div   of expr * expr
+  | Mod   of expr * expr
 
 let rec eval state expr =
   match expr with
   | Const  n     -> n
   | Var    x     -> state x
   | Add   (l, r) -> eval state l + eval state r
+  | Sub   (l, r) -> eval state l - eval state r
   | Mul   (l, r) -> eval state l * eval state r
+  | Div   (l, r) -> eval state l / eval state r
+  | Mod   (l, r) -> eval state l mod eval state r
 
 type stmt =
   | Skip
@@ -41,7 +47,10 @@ let rec collect_vars stmt =
     | Const _ -> SS.empty
     | Var s -> SS.singleton s
     | Add (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Sub (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
     | Mul (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Div (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Mod (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
   in
   match stmt with
   | Skip -> SS.empty
@@ -57,7 +66,10 @@ type instr =
   | S_LD    of string
   | S_ST    of string
   | S_ADD
+  | S_SUB
   | S_MUL
+  | S_DIV
+  | S_MOD
 
 let srun input code =
   let rec srun' (state, stack, input, output) code =
@@ -66,25 +78,34 @@ let srun input code =
     | i::code' ->
        srun'
          (match i with
-          | S_READ ->
-             let y::input' = input in
-             (state, y::stack, input', output)
+          | S_READ  ->
+              let y::input' = input in
+              (state, y::stack, input', output)
           | S_WRITE ->
-             let y::stack' = stack in
-             (state, stack', input, output @ [y])
+              let y::stack' = stack in
+              (state, stack', input, output @ [y])
           | S_PUSH n ->
-             (state, n::stack, input, output)
-          | S_LD x ->
-             (state, (List.assoc x state)::stack, input, output)
-          | S_ST x ->
-             let y::stack' = stack in
-             ((x, y)::state, stack', input, output)
-          | S_ADD ->
-             let y::x::stack' = stack in
-             (state, (x+y)::stack', input, output)
-          | S_MUL ->
-             let y::x::stack' = stack in
-             (state, (x*y)::stack', input, output)
+              (state, n::stack, input, output)
+          | S_LD x  ->
+              (state, (List.assoc x state)::stack, input, output)
+          | S_ST x  ->
+              let y::stack' = stack in
+              ((x, y)::state, stack', input, output)
+          | S_ADD   ->
+              let y::x::stack' = stack in
+              (state, (x+y)::stack', input, output)
+          | S_SUB   ->
+              let y::x::stack' = stack in
+              (state, (x - y)::stack', input, output)
+          | S_MUL   ->
+              let y::x::stack' = stack in
+              (state, (x * y)::stack', input, output)
+          | S_DIV   ->
+              let y::x::stack' = stack in
+              (state, (x / y)::stack', input, output)
+          | S_MOD   ->
+              let y::x::stack' = stack in
+              (state, (x mod y)::stack', input, output)
          )
          code'
   in
@@ -95,7 +116,10 @@ let rec compile_expr expr =
   | Var    x     -> [S_LD   x]
   | Const  n     -> [S_PUSH n]
   | Add   (l, r) -> compile_expr l @ compile_expr r @ [S_ADD]
+  | Sub   (l, r) -> compile_expr l @ compile_expr r @ [S_SUB]
   | Mul   (l, r) -> compile_expr l @ compile_expr r @ [S_MUL]
+  | Div   (l, r) -> compile_expr l @ compile_expr r @ [S_DIV]
+  | Mod   (l, r) -> compile_expr l @ compile_expr r @ [S_MOD]
 
 let rec compile_stmt stmt =
   match stmt with
@@ -105,7 +129,7 @@ let rec compile_stmt stmt =
   | Write   e     -> compile_expr e @ [S_WRITE]
   | Seq    (l, r) -> compile_stmt l @ compile_stmt r
 
-let x86regs = [|"%esp"; "%ebp"; "%eax"; "%ebx"; "%ecx"; "%edx"; "%esi"; "%edi"|]
+let x86regs = [|"%esp"; "%ebp"; "%eax"; "%edx"; "%ecx"; "%ebx"; "%esi"; "%edi"|]
 let num_of_regs = Array.length x86regs
 let word_size = 4
 
@@ -114,10 +138,11 @@ type opnd = R of int | S of int | M of string | L of int
 let x86esp = R 0
 let x86ebp = R 1
 let x86eax = R 2
+let x86edx = R 3
 
 let allocate stack =
   match stack with
-  | []                              -> R 3 (* preserve esp, ebp and eax and for stuff :) *)
+  | []                              -> R 4 (* preserve esp, ebp and eax and for stuff :) *)
   | (S n)::_                        -> S (n+1)
   | (R n)::_ when n < num_of_regs-1 -> R (n+1)
   | _                               -> S 0
@@ -126,6 +151,7 @@ type x86instr = (* src -> dest *)
   | X86Add  of opnd * opnd
   | X86Sub  of opnd * opnd
   | X86Mul  of opnd * opnd
+  | X86Div  of opnd
   | X86Mov  of opnd * opnd
   | X86Push of opnd
   | X86Pop  of opnd
@@ -170,18 +196,30 @@ let x86compile : instr list -> x86instr list = fun code ->
            | R _ -> (stack', [X86Mov (s, M x)])
            | _   -> (stack', [X86Mov (s, x86eax); X86Mov(x86eax, M x); X86Add (L word_size, x86esp)])
            in res
-         | S_ADD ->
+         | S_ADD  ->
            let y::x::stack' = stack in
            let res = match x with
            | R _ -> (x::stack', [X86Add (y, x)] @ x86subStack y)
            | _   -> (x::stack', [X86Mov (x, x86eax); X86Add (y, x86eax); X86Mov (x86eax, x)] @ x86subStack y)
            in res
-         | S_MUL ->
+         | S_SUB  ->
+           let y::x::stack' = stack in
+           let res = match x with
+           | R _ -> (x::stack', [X86Sub (y, x)] @ x86subStack y)
+           | _   -> (x::stack', [X86Mov (x, x86eax); X86Sub(y, x86eax); X86Mov (x86eax, x)] @ x86subStack y)
+           in res
+         | S_MUL  ->
            let y::x::stack' = stack in
            let res = match x with
            | R _ -> (x::stack', [X86Mul (y, x)] @ x86subStack y)
            | _   -> (x::stack', [X86Mov (x, x86eax); X86Mul (y, x86eax); X86Mov (x86eax, x)] @ x86subStack y)
            in res
+         | S_DIV  ->
+           let y::x::stack' = stack in
+           (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86eax, x)])
+         | S_MOD  ->
+           let y::x::stack' = stack in
+           (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86edx, x)])
        in
        x86code @ x86compile' stack' code'
   in

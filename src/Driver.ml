@@ -14,10 +14,13 @@ let p =
       ),
       Seq (
           Seq (
-              Assign ("x1", Mul (Var "x", Var "x")),
-              Assign ("y1", Mul (Var "y", Var "y"))
+              Assign ("x1", Div (Var "x", Var "y")),
+              Assign ("y1", Mod (Var "x", Var "y"))
           ),
-          Write (Add (Var "y1", Var "x1"))
+          Seq(
+            Write (Var "x1"),
+            Write (Var "y1")
+          )
       )
     )
 
@@ -82,6 +85,7 @@ let _ =
     | X86Add (o1, o2) -> Printf.printf "\tADDL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
     | X86Sub (o1, o2) -> Printf.printf "\tSUBL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
     | X86Mul (o1, o2) -> Printf.printf "\tIMULL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
+    | X86Div o1       -> Printf.printf "\tCLTD\n\tIDIVL %s\n" (pr_op o1)
     | X86Mov (o1, o2) -> Printf.printf "\tMOVL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
     | X86Push o1      -> Printf.printf "\tPUSHL\t%s\n" (pr_op o1)
     | X86Pop o1       -> Printf.printf "\tPOPL\t%s\n" (pr_op o1)
