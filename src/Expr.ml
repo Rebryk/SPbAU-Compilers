@@ -137,7 +137,8 @@ let srun input code =
               ((x, y)::state, stack', input, output)
           | S_NOT   ->
               let y::stack' = stack in
-              (state, (to_int (not (to_bool y)))::stack', input, output)
+              let z = to_int (not (to_bool y)) in
+              (state, z::stack', input, output)
           | S_ADD   ->
               let y::x::stack' = stack in
               (state, (x+y)::stack', input, output)
@@ -153,6 +154,38 @@ let srun input code =
           | S_MOD   ->
               let y::x::stack' = stack in
               (state, (x mod y)::stack', input, output)
+          | S_AND   ->
+              let y::x::stack' = stack in
+              let z = to_int (to_bool x && to_bool y) in
+              (state, z::stack', input, output)
+          | S_OR    ->
+              let y::x::stack' = stack in
+              let z = to_int (to_bool x || to_bool y) in
+              (state, z::stack', input, output)
+          | S_LESS  ->
+              let y::x::stack' = stack in
+              let z = to_int (x < y) in
+              (state, z::stack', input, output)
+          | S_LEQ    ->
+              let y::x::stack' = stack in
+              let z = to_int (x <= y) in
+              (state, z::stack', input, output)
+          | S_EQUAL ->
+              let y::x::stack' = stack in
+              let z = to_int (x == y) in
+              (state, z::stack', input, output)
+          | S_GEQ   ->
+              let y::x::stack' = stack in
+              let z = to_int (x >= y) in
+              (state, z::stack', input, output)
+          | S_GREATER ->
+              let y::x::stack' = stack in
+              let z = to_int (x > y) in
+              (state, z::stack', input, output)
+          | S_NEQ     ->
+              let y::x::stack' = stack in
+              let z = to_int (x != y) in
+              (state, z::stack', input, output)
          )
          code'
   in
