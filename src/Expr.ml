@@ -309,8 +309,8 @@ let x86compile : instr list -> x86instr list = fun code ->
            let res = 
              match s with
              | R _ -> (s::stack, [X86Mov (M x, s)], label)
-					   | _   -> (s::stack, [X86Mov (M x, x86eax); X86Mov (x86eax, s); X86Sub (L word_size, x86esp)], label)
-					 in res
+             | _   -> (s::stack, [X86Mov (M x, x86eax); X86Mov (x86eax, s); X86Sub (L word_size, x86esp)], label)
+           in res
          | S_ST x     ->
            let s::stack' = stack in
            let res = 
