@@ -193,13 +193,22 @@ let srun input code =
 
 let rec compile_expr expr =
   match expr with
-  | Var    x     -> [S_LD   x]
-  | Const  n     -> [S_PUSH n]
-  | Add   (l, r) -> compile_expr l @ compile_expr r @ [S_ADD]
-  | Sub   (l, r) -> compile_expr l @ compile_expr r @ [S_SUB]
-  | Mul   (l, r) -> compile_expr l @ compile_expr r @ [S_MUL]
-  | Div   (l, r) -> compile_expr l @ compile_expr r @ [S_DIV]
-  | Mod   (l, r) -> compile_expr l @ compile_expr r @ [S_MOD]
+  | Var     x       -> [S_LD   x]
+  | Const   n       -> [S_PUSH n]
+  | Not     x       -> compile_expr x @ [S_NOT]
+  | Add     (l, r)  -> compile_expr l @ compile_expr r @ [S_ADD]
+  | Sub     (l, r)  -> compile_expr l @ compile_expr r @ [S_SUB]
+  | Mul     (l, r)  -> compile_expr l @ compile_expr r @ [S_MUL]
+  | Div     (l, r)  -> compile_expr l @ compile_expr r @ [S_DIV]
+  | Mod     (l, r)  -> compile_expr l @ compile_expr r @ [S_MOD]
+  | And     (l, r)  -> compile_expr l @ compile_expr r @ [S_AND]
+  | Or      (l, r)  -> compile_expr l @ compile_expr r @ [S_OR]
+  | Less    (l, r)  -> compile_expr l @ compile_expr r @ [S_LESS]
+  | Leq     (l, r)  -> compile_expr l @ compile_expr r @ [S_LEQ]
+  | Equal   (l, r)  -> compile_expr l @ compile_expr r @ [S_EQUAL]
+  | Geq     (l, r)  -> compile_expr l @ compile_expr r @ [S_GEQ]
+  | Greater (l, r)  -> compile_expr l @ compile_expr r @ [S_GREATER]
+  | Neq     (l, r)  -> compile_expr l @ compile_expr r @ [S_NEQ]
 
 let rec compile_stmt stmt =
   match stmt with
@@ -232,6 +241,8 @@ type x86instr = (* src -> dest *)
   | X86Sub  of opnd * opnd
   | X86Mul  of opnd * opnd
   | X86Div  of opnd
+  | X86And  of opnd * opnd
+  | X86Or   of opnd * opnd
   | X86Mov  of opnd * opnd
   | X86Push of opnd
   | X86Pop  of opnd
@@ -305,6 +316,20 @@ let x86compile : instr list -> x86instr list = fun code ->
          | S_MOD  ->
            let y::x::stack' = stack in
            (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86edx, x)])
+         | S_AND  ->
+           let y::x::stack' = stack in
+           let res =   
+             match x with
+             | R _ -> (x::stack', [X86And (y, x)] @ x86subStack y)
+             | _   -> (x::stack', [X86Mov (x, x86eax); X86And (y, x86eax); X86Mov (x86eax, x)] @ x86subStack y)
+           in res
+         | S_OR  ->
+           let y::x::stack' = stack in
+           let res =   
+             match x with
+             | R _ -> (x::stack', [X86Or (y, x)] @ x86subStack y)
+             | _   -> (x::stack', [X86Mov (x, x86eax); X86Or (y, x86eax); X86Mov (x86eax, x)] @ x86subStack y)
+           in res 
        in
        x86code @ x86compile' stack' code'
   in
