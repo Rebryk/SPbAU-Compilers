@@ -1,23 +1,45 @@
 module SS = Set.Make(String)
 
 type expr =
-  | Const of int
-  | Var   of string
-  | Add   of expr * expr
-  | Sub   of expr * expr
-  | Mul   of expr * expr
-  | Div   of expr * expr
-  | Mod   of expr * expr
+  | Const   of int
+  | Var     of string
+  | Not     of expr
+  | Add     of expr * expr
+  | Sub     of expr * expr
+  | Mul     of expr * expr
+  | Div     of expr * expr
+  | Mod     of expr * expr
+  | And     of expr * expr
+  | Or      of expr * expr
+  | Less    of expr * expr
+  | Leq     of expr * expr
+  | Equal   of expr * expr
+  | Geq     of expr * expr
+  | Greater of expr * expr
+  | Neq     of expr * expr 
+
 
 let rec eval state expr =
+  let to_bool x = if x == 0 then 0 else 1 in
+  let to_int  x = if x then 1 else 0 in
+
   match expr with
-  | Const  n     -> n
-  | Var    x     -> state x
-  | Add   (l, r) -> eval state l + eval state r
-  | Sub   (l, r) -> eval state l - eval state r
-  | Mul   (l, r) -> eval state l * eval state r
-  | Div   (l, r) -> eval state l / eval state r
-  | Mod   (l, r) -> eval state l mod eval state r
+  | Const   n       -> n
+  | Var     x       -> state x
+  | Not     x       -> if (eval state x) == 0 then 1 else 0 
+  | Add     (l, r)  -> eval state l + eval state r
+  | Sub     (l, r)  -> eval state l - eval state r
+  | Mul     (l, r)  -> eval state l * eval state r
+  | Div     (l, r)  -> eval state l / eval state r
+  | Mod     (l, r)  -> eval state l mod eval state r
+  | And     (l, r)  -> to_int ((to_bool (eval state l) + to_bool (eval state r)) == 2)
+  | Or      (l, r)  -> to_int ((to_bool (eval state l) + to_bool (eval state r)) > 0)
+  | Less    (l, r)  -> to_int (eval state l < eval state r)
+  | Leq     (l, r)  -> to_int (eval state l <= eval state r)
+  | Equal   (l, r)  -> to_int (eval state l == eval state r)
+  | Geq     (l, r)  -> to_int (eval state l >= eval state r)
+  | Greater (l, r)  -> to_int (eval state l > eval state r)
+  | Neq     (l, r)  -> to_int (eval state l != eval state r)
 
 type stmt =
   | Skip
@@ -44,13 +66,22 @@ let run input stmt =
 let rec collect_vars stmt =
   let rec collect_vars_expr expr =
     match expr with
-    | Const _ -> SS.empty
-    | Var s -> SS.singleton s
-    | Add (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Sub (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Mul (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Div (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Mod (l, r) -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Const    _      -> SS.empty
+    | Var     s       -> SS.singleton s
+    | Not     x       -> collect_vars_expr x 
+    | Add     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Sub     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Mul     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Div     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Mod     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | And     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Or      (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Less    (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Leq     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Equal   (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Geq     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Greater (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+    | Neq     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
   in
   match stmt with
   | Skip -> SS.empty
