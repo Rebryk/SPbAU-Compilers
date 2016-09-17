@@ -231,24 +231,32 @@ let x86edx = R 3
 
 let allocate stack =
   match stack with
-  | []                              -> R 4 (* preserve esp, ebp and eax and for stuff :) *)
+  | []                              -> R 4 (* preserve esp, ebp, eax and edx for stuff :) *)
   | (S n)::_                        -> S (n+1)
   | (R n)::_ when n < num_of_regs-1 -> R (n+1)
   | _                               -> S 0
 
 type x86instr = (* src -> dest *)
-  | X86Not  of opnd
-  | X86Add  of opnd * opnd
-  | X86Sub  of opnd * opnd
-  | X86Mul  of opnd * opnd
-  | X86Div  of opnd
-  | X86And  of opnd * opnd
-  | X86Or   of opnd * opnd
-  | X86Mov  of opnd * opnd
-  | X86Push of opnd
-  | X86Pop  of opnd
+  | X86Not    of opnd
+  | X86Add    of opnd * opnd
+  | X86Sub    of opnd * opnd
+  | X86Mul    of opnd * opnd
+  | X86Div    of opnd
+  | X86And    of opnd * opnd
+  | X86Or     of opnd * opnd
+  | X86Mov    of opnd * opnd
+  | X86Cmp    of opnd * opnd
+  | X86Push   of opnd
+  | X86Pop    of opnd
   | X86Ret
-  | X86Call of string
+  | X86Call   of string
+  | X86Label  of int
+  | X86Jl     of int
+  | X86Jle    of int
+  | X86Je     of int
+  | X86Jge    of int
+  | X86Jg     of int
+  | X86Jne    of int
 
 let x86compile : instr list -> x86instr list = fun code ->
   let x86addStack s =
@@ -256,87 +264,83 @@ let x86compile : instr list -> x86instr list = fun code ->
     | S _ -> [X86Sub (L word_size, x86esp)]
     | _   -> []
   in
+  
   let x86subStack s =
     match s with
     | S _ -> [X86Add (L word_size, x86esp)]
     | _   -> []
   in
-  let rec x86compile' stack code =
+
+  let rec x86compile' stack code label =
+    let cmp_pattern x86i stack code label =
+      let y::x::stack' = stack in
+      let res =   
+        match x with
+        | R _ -> (x::stack', [X86Cmp (y, x); X86Mov (L 1, x); x86i label; X86Mov (L 0, x); X86Label label] @ x86subStack y, label)
+        | _   -> (x::stack', [X86Mov (x, x86eax); X86Cmp (y, x86eax); X86Mov (L 1, x86eax); x86i label; X86Mov (L 0, x86eax); X86Label label] @ x86subStack y, label)
+      in res 
+    in
+    
+    let bin_pattern x86i stack code label =
+      let y::x::stack' = stack in
+      let res = 
+        match x with
+        | R _ -> (x::stack', [x86i y x] @ x86subStack y, label)
+        | _   -> (x::stack', [X86Mov (x, x86eax); x86i y x86eax; X86Mov (x86eax, x)] @ x86subStack y, label)
+      in res
+    in
+
     match code with
     | []       -> []
     | i::code' ->
-       let (stack', x86code) =
+        let (stack', x86code, label') =
          match i with
-         | S_READ   ->
+         | S_READ     ->
            let s = allocate stack in
-           (s::stack, [X86Call "read"; X86Mov (x86eax, s)] @ x86addStack s)
-         | S_WRITE  ->
+           (s::stack, [X86Call "read"; X86Mov (x86eax, s)] @ x86addStack s, label)
+         | S_WRITE    ->
            let s::stack' = stack in
-           (stack', [X86Push s; X86Call "write"] @ x86subStack (S 0) @ x86subStack s)
-         | S_PUSH n ->
+           (stack', [X86Push s; X86Call "write"] @ x86subStack (S 0) @ x86subStack s, label)
+         | S_PUSH n   ->
            let s = allocate stack in
-           (s::stack, [X86Mov (L n, s)] @ x86addStack s)
-         | S_LD x ->
+           (s::stack, [X86Mov (L n, s)] @ x86addStack s, label)
+         | S_LD x     ->
            let s = allocate stack in
            let res = 
              match s with
-             | R _ -> (s::stack, [X86Mov (M x, s)])
-					   | _   -> (s::stack, [X86Mov (M x, x86eax); X86Mov (x86eax, s); X86Sub (L word_size, x86esp)])
+             | R _ -> (s::stack, [X86Mov (M x, s)], label)
+					   | _   -> (s::stack, [X86Mov (M x, x86eax); X86Mov (x86eax, s); X86Sub (L word_size, x86esp)], label)
 					 in res
-         | S_ST x ->
+         | S_ST x     ->
            let s::stack' = stack in
            let res = 
              match s with
-             | R _ -> (stack', [X86Mov (s, M x)])
-             | _   -> (stack', [X86Mov (s, x86eax); X86Mov(x86eax, M x); X86Add (L word_size, x86esp)])
+             | R _ -> (stack', [X86Mov (s, M x)], label)
+             | _   -> (stack', [X86Mov (s, x86eax); X86Mov(x86eax, M x); X86Add (L word_size, x86esp)], label)
            in res
-         | S_NOT  ->
+         | S_NOT      ->
            let x::stack' = stack in
-           (stack, [X86Not x])
-         | S_ADD  ->
+           (stack, [X86Not x], label)
+         | S_ADD      -> bin_pattern (fun x y -> X86Add (x, y)) stack code label
+         | S_SUB      -> bin_pattern (fun x y -> X86Sub (x, y)) stack code label
+         | S_MUL      -> bin_pattern (fun x y -> X86Mul (x, y)) stack code label
+         | S_DIV      -> 
            let y::x::stack' = stack in
-           let res = 
-             match x with
-             | R _ -> (x::stack', [X86Add (y, x)] @ x86subStack y)
-             | _   -> (x::stack', [X86Mov (x, x86eax); X86Add (y, x86eax); X86Mov (x86eax, x)] @ x86subStack y)
-           in res
-         | S_SUB  ->
+           (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86eax, x)], label)
+         | S_MOD      ->
            let y::x::stack' = stack in
-           let res = 
-             match x with
-             | R _ -> (x::stack', [X86Sub (y, x)] @ x86subStack y)
-             | _   -> (x::stack', [X86Mov (x, x86eax); X86Sub(y, x86eax); X86Mov (x86eax, x)] @ x86subStack y)
-           in res
-         | S_MUL  ->
-           let y::x::stack' = stack in
-           let res = 
-             match x with
-             | R _ -> (x::stack', [X86Mul (y, x)] @ x86subStack y)
-             | _   -> (x::stack', [X86Mov (x, x86eax); X86Mul (y, x86eax); X86Mov (x86eax, x)] @ x86subStack y)
-           in res
-         | S_DIV  ->
-           let y::x::stack' = stack in
-           (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86eax, x)])
-         | S_MOD  ->
-           let y::x::stack' = stack in
-           (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86edx, x)])
-         | S_AND  ->
-           let y::x::stack' = stack in
-           let res =   
-             match x with
-             | R _ -> (x::stack', [X86And (y, x)] @ x86subStack y)
-             | _   -> (x::stack', [X86Mov (x, x86eax); X86And (y, x86eax); X86Mov (x86eax, x)] @ x86subStack y)
-           in res
-         | S_OR  ->
-           let y::x::stack' = stack in
-           let res =   
-             match x with
-             | R _ -> (x::stack', [X86Or (y, x)] @ x86subStack y)
-             | _   -> (x::stack', [X86Mov (x, x86eax); X86Or (y, x86eax); X86Mov (x86eax, x)] @ x86subStack y)
-           in res 
+           (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86edx, x)], label)
+         | S_AND      -> bin_pattern (fun x y -> X86And (x, y)) stack code label
+         | S_OR       -> bin_pattern (fun x y -> X86Or (x, y)) stack code label
+         | S_LESS     -> cmp_pattern (fun x -> X86Jl x)   stack code (label + 1)
+         | S_LEQ      -> cmp_pattern (fun x -> X86Jle x)  stack code (label + 1)
+         | S_EQUAL    -> cmp_pattern (fun x -> X86Je x)   stack code (label + 1)
+         | S_GEQ      -> cmp_pattern (fun x -> X86Jge x)  stack code (label + 1)
+         | S_GREATER  -> cmp_pattern (fun x -> X86Jg x)   stack code (label + 1)
+         | S_NEQ      -> cmp_pattern (fun x -> X86Jne x)  stack code (label + 1)
        in
-       x86code @ x86compile' stack' code'
+       x86code @ x86compile' stack' code' label'
   in
   (*store stack base in %rbx*)
-  (X86Mov (x86esp, x86ebp))::x86compile' [] code
+  (X86Mov (x86esp, x86ebp))::x86compile' [] code 0
 
