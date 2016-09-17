@@ -20,20 +20,20 @@ type expr =
 
 
 let rec eval state expr =
-  let to_bool x = if x == 0 then 0 else 1 in
+  let to_bool x = x != 0 in
   let to_int  x = if x then 1 else 0 in
 
   match expr with
   | Const   n       -> n
   | Var     x       -> state x
-  | Not     x       -> if (eval state x) == 0 then 1 else 0 
+  | Not     x       -> to_int (not (to_bool (eval state x)))
   | Add     (l, r)  -> eval state l + eval state r
   | Sub     (l, r)  -> eval state l - eval state r
   | Mul     (l, r)  -> eval state l * eval state r
   | Div     (l, r)  -> eval state l / eval state r
   | Mod     (l, r)  -> eval state l mod eval state r
-  | And     (l, r)  -> to_int ((to_bool (eval state l) + to_bool (eval state r)) == 2)
-  | Or      (l, r)  -> to_int ((to_bool (eval state l) + to_bool (eval state r)) > 0)
+  | And     (l, r)  -> to_int (to_bool (eval state l) && to_bool (eval state r))
+  | Or      (l, r)  -> to_int (to_bool (eval state l) || to_bool (eval state r))
   | Less    (l, r)  -> to_int (eval state l < eval state r)
   | Leq     (l, r)  -> to_int (eval state l <= eval state r)
   | Equal   (l, r)  -> to_int (eval state l == eval state r)
@@ -96,14 +96,27 @@ type instr =
   | S_PUSH  of int
   | S_LD    of string
   | S_ST    of string
+  | S_NOT
   | S_ADD
   | S_SUB
   | S_MUL
   | S_DIV
   | S_MOD
+  | S_AND
+  | S_OR
+  | S_LESS
+  | S_LEQ
+  | S_EQUAL
+  | S_GEQ
+  | S_GREATER
+  | S_NEQ
+  
 
 let srun input code =
   let rec srun' (state, stack, input, output) code =
+    let to_bool x = x != 0 in
+    let to_int  x = if x then 1 else 0 in
+
     match code with
     | []       -> output
     | i::code' ->
@@ -122,6 +135,9 @@ let srun input code =
           | S_ST x  ->
               let y::stack' = stack in
               ((x, y)::state, stack', input, output)
+          | S_NOT   ->
+              let y::stack' = stack in
+              (state, (to_int (not (to_bool y)))::stack', input, output)
           | S_ADD   ->
               let y::x::stack' = stack in
               (state, (x+y)::stack', input, output)
