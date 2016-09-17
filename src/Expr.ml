@@ -237,6 +237,7 @@ let allocate stack =
   | _                               -> S 0
 
 type x86instr = (* src -> dest *)
+  | X86Not  of opnd
   | X86Add  of opnd * opnd
   | X86Sub  of opnd * opnd
   | X86Mul  of opnd * opnd
@@ -289,6 +290,9 @@ let x86compile : instr list -> x86instr list = fun code ->
              | R _ -> (stack', [X86Mov (s, M x)])
              | _   -> (stack', [X86Mov (s, x86eax); X86Mov(x86eax, M x); X86Add (L word_size, x86esp)])
            in res
+         | S_NOT  ->
+           let x::stack' = stack in
+           (stack, [X86Not x])
          | S_ADD  ->
            let y::x::stack' = stack in
            let res = 

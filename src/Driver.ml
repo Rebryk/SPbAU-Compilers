@@ -8,7 +8,7 @@ let p =
       ),
       Seq (
           Seq (
-              Assign ("x1", And (Var "x", Var "y")),
+              Assign ("x1", Not (Var "x")),
               Assign ("y1", Or (Var "x", Var "y"))
           ),
           Seq(
@@ -35,6 +35,7 @@ let gen_asm p name =
   Printf.fprintf outf "main:\n";
   List.iter (fun instr ->
     match instr with
+    | X86Not  o1        -> Printf.fprintf outf "\tNOTL\t%s\n" (pr_op o1)
     | X86Add  (o1, o2)  -> Printf.fprintf outf "\tADDL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
     | X86Sub  (o1, o2)  -> Printf.fprintf outf "\tSUBL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
     | X86Mul  (o1, o2)  -> Printf.fprintf outf "\tIMULL\t%s,\t%s\n" (pr_op o1) (pr_op o2)
