@@ -18,7 +18,7 @@ let rec pr_op opnd =
 
 let gen_asm p name =
 	let vars = collect_vars p in
-	let code = x86compile (compile_stmt p) in
+	let code = x86compile (compile_statement p) in
   let outf = open_out (Printf.sprintf "%s" name) in
   
   Printf.fprintf outf "\t.extern read\n\t.extern write\n\t.global main\n\n\t.text\n";
@@ -45,6 +45,7 @@ let gen_asm p name =
     | X86Jump   (Geq, n)                -> Printf.fprintf outf "\tJGE\tlabel%d\n" n
     | X86Jump   (Greater, n)            -> Printf.fprintf outf "\tJG\tlabel%d\n" n
     | X86Jump   (Neq, n)                -> Printf.fprintf outf "\tJNE\tlabel%d\n" n
+    | _                                 -> assert false
   ) code;
   Printf.fprintf outf "\tXORL\t%s,\t%s\nRET\n\n" (pr_op x86eax) (pr_op x86eax);
   SS.iter (fun var -> Printf.fprintf outf "\t.comm %s 4\n" var) vars;
