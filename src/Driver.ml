@@ -51,6 +51,16 @@ let gen_asm p name =
   SS.iter (fun var -> Printf.fprintf outf "\t.comm %s 4\n" var) vars;
   close_out outf
 
+let build code name = 
+  gen_asm code (Printf.sprintf "%s.S" name);
+  Sys.command (Printf.sprintf "gcc -m32 -o %s ../runtime/runtime.o %s.S" name name)
+
 let _ = 
-  gen_asm p "main.S";
-  Sys.command (Printf.sprintf "gcc -m32 -o main ../runtime/runtime.o main.S")
+  try
+    let filename = Sys.argv.(1) in
+    match Parser.parse filename with
+    | `Ok code -> ignore @@ build code (Filename.chop_suffix filename ".expr")
+    | `Fail er -> Printf.eprintf "%s" er
+  with Invalid_argument _ ->
+    Printf.printf "Usage: rc.byte <name.exp>\n"
+

@@ -66,8 +66,7 @@ let run input statement =
         match input with
         | []        -> assert false
         | y::input' -> ((x, y) :: state, input', output)
-       in
-       result
+       in result
   in
   let (_, _, result) = run' ([], input, []) statement in
   result
