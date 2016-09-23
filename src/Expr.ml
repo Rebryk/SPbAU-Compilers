@@ -1,8 +1,6 @@
 module SS = Set.Make(String)
 
-type expr =
-  | Const   of int
-  | Var     of string
+type operation =
   | Not     of expr
   | Add     of expr * expr
   | Sub     of expr * expr
@@ -18,205 +16,186 @@ type expr =
   | Greater of expr * expr
   | Neq     of expr * expr 
 
+type expression = 
+  | Const             of int
+  | Var               of string
+  | UnaryOperation    of operation * expression
+  | BinaryOperation   of operation * expression * expression
+  | Comparison        of operation * expression * expression
 
-let rec eval state expr =
+type statement =
+  | Skip
+  | Read   of string
+  | Write  of expression
+  | Assign of string * expression
+  | Seq    of statement * statement
+
+let rec evaluate state expression =
   let to_bool x = x != 0 in
   let to_int  x = if x then 1 else 0 in
 
-  match expr with
-  | Const   n       -> n
-  | Var     x       -> state x
-  | Not     x       -> to_int (not (to_bool (eval state x)))
-  | Add     (l, r)  -> eval state l + eval state r
-  | Sub     (l, r)  -> eval state l - eval state r
-  | Mul     (l, r)  -> eval state l * eval state r
-  | Div     (l, r)  -> eval state l / eval state r
-  | Mod     (l, r)  -> eval state l mod eval state r
-  | And     (l, r)  -> to_int (to_bool (eval state l) && to_bool (eval state r))
-  | Or      (l, r)  -> to_int (to_bool (eval state l) || to_bool (eval state r))
-  | Less    (l, r)  -> to_int (eval state l < eval state r)
-  | Leq     (l, r)  -> to_int (eval state l <= eval state r)
-  | Equal   (l, r)  -> to_int (eval state l == eval state r)
-  | Geq     (l, r)  -> to_int (eval state l >= eval state r)
-  | Greater (l, r)  -> to_int (eval state l > eval state r)
-  | Neq     (l, r)  -> to_int (eval state l != eval state r)
+  match expression with
+  | Const                   n       -> n
+  | Var                     x       -> state x
+  | UnaryOperation  Not     e       -> to_int (not (to_bool (eval state e)))
+  | BinaryOperation Add     (l, r)  -> eval state l + eval state r
+  | BinaryOperation Sub     (l, r)  -> eval state l - eval state r
+  | BinaryOperation Mul     (l, r)  -> eval state l * eval state r
+  | BinaryOperation Div     (l, r)  -> eval state l / eval state r
+  | BinaryOperation Mod     (l, r)  -> eval state l mod eval state r
+  | BinaryOperation And     (l, r)  -> to_int (to_bool (eval state l) && to_bool (eval state r))
+  | BinaryOperation Or      (l, r)  -> to_int (to_bool (eval state l) || to_bool (eval state r))
+  | Comparison      Less    (l, r)  -> to_int (eval state l < eval state r)
+  | Comparison      Leq     (l, r)  -> to_int (eval state l <= eval state r)
+  | Comparison      Equal   (l, r)  -> to_int (eval state l == eval state r)
+  | Comparison      Geq     (l, r)  -> to_int (eval state l >= eval state r)
+  | Comparison      Greater (l, r)  -> to_int (eval state l > eval state r)
+  | Comparison      Neq     (l, r)  -> to_int (eval state l != eval state r)
 
-type stmt =
-  | Skip
-  | Read   of string
-  | Write  of expr
-  | Assign of string * expr
-  | Seq    of stmt * stmt
-
-let run input stmt =
-  let rec run' ((state, input, output) as c) stmt =
+let run input statement =
+  let rec run' ((state, input, output) as c) statement =
     let state' x = List.assoc x state in
-    match stmt with
-    | Skip          -> c
-    | Seq    (l, r) -> run' (run' c l) r
-    | Assign (x, e) -> ((x, eval state' e) :: state, input, output)
-    | Write   e     -> (state, input, output @ [eval state' e])
-    | Read    x     ->
-       let y::input' = input in
-       ((x, y) :: state, input', output)
+    match statement with
+    | Skip            -> c
+    | Seq     (l, r)  -> run' (run' c l) r
+    | Assign  (x, e)  -> ((x, eval state' e) :: state, input, output)
+    | Write   e       -> (state, input, output @ [eval state' e])
+    | Read    x       ->
+      let y::input' = input in (* TODO: check input *)
+      ((x, y) :: state, input', output)
   in
-  let (_, _, result) = run' ([], input, []) stmt in
+  let (_, _, result) = run' ([], input, []) statement in
   result
 
-let rec collect_vars stmt =
-  let rec collect_vars_expr expr =
-    match expr with
-    | Const    _      -> SS.empty
-    | Var     s       -> SS.singleton s
-    | Not     x       -> collect_vars_expr x 
-    | Add     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Sub     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Mul     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Div     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Mod     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | And     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Or      (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Less    (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Leq     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Equal   (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Geq     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Greater (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
-    | Neq     (l, r)  -> SS.union (collect_vars_expr l) (collect_vars_expr r)
+let rec collect_vars statement =
+  let rec collect_vars_expression expression =
+    match expression with
+    | Const           _       -> SS.empty
+    | Var             s       -> SS.singleton s
+    | UnaryOperation  _ x     -> collect_vars_expression x 
+    | BinaryOperation _ l r   -> SS.union (collect_vars_expression l) (collect_vars_expression r)
+    | Comparison      _ l r   -> SS.union (collect_vars_expression l) (collect_vars_expression r)
   in
-  match stmt with
-  | Skip -> SS.empty
-  | Seq (l, r) -> SS.union (collect_vars l) (collect_vars r)
-  | Assign (x, e) -> SS.union (SS.singleton x) (collect_vars_expr e)
-  | Write e -> collect_vars_expr e
-  | Read x -> SS.singleton x
+  match statement with
+  | Skip            -> SS.empty
+  | Seq     (l, r)  -> SS.union (collect_vars l) (collect_vars r)
+  | Assign  (x, e)  -> SS.union (SS.singleton x) (collect_vars_expression e)
+  | Write   e       -> collect_vars_expression e
+  | Read    x       -> SS.singleton x
 
-type instr =
+type stack_instruction = 
   | S_READ
   | S_WRITE
-  | S_PUSH  of int
-  | S_LD    of string
-  | S_ST    of string
-  | S_NOT
-  | S_ADD
-  | S_SUB
-  | S_MUL
-  | S_DIV
-  | S_MOD
-  | S_AND
-  | S_OR
-  | S_LESS
-  | S_LEQ
-  | S_EQUAL
-  | S_GEQ
-  | S_GREATER
-  | S_NEQ
-  
+  | S_PUSH              of int
+  | S_LD                of string
+  | S_ST                of string
+  | S_UNARY_OPERATION   of operation
+  | S_BINARY_OPERATION  of operation
+  | S_COMPARISON        of operation 
 
-let srun input code =
-  let rec srun' (state, stack, input, output) code =
-    let to_bool x = x != 0 in
-    let to_int  x = if x then 1 else 0 in
+let stack_run input code =
+  let rec stack_run' (state, stack, input, output) code =
+    let to_bool x   = x != 0 in
+    let to_int  x   = if x then 1 else 0 in
+
+    let run_unary_operation operation = 
+      let y::stack' = 
+        match stack with
+        | []        -> assert false
+        | y::stack' -> stack
+      in
+
+      let result = 
+        match operation with
+        | Not   -> to_int (not (to_bool y))
+        | _       -> assert false
+      in
+      (state, result::stack', input, output)
+    in
+
+    let run_binary_operation operation =
+      let y::x::stack' = 
+        match stack with
+        | [] | _::[]    -> assert false
+        | y::x::stack'  -> stack
+      in
+
+      let result = 
+        match operation with
+        | Add   -> x + y
+        | Sub   -> x - y
+        | Mul   -> x * y
+        | Div   -> x / y
+        | Mod   -> x mod y
+        | And   -> to_int (to_bool x && to_bool y)
+        | Or    -> to_int (to_bool x || to_bool y)
+        | _     -> assert false
+      in
+      (state, result::stack', input, output)
+    in
+
+    let run_comparison stack_operation =
+      let y::x::stack' = 
+        match stack with
+        | [] | _::[]    -> assert false
+        | y::x::stack'  -> stack
+      in
+
+      let result = 
+        match stack_operation with
+        | Less      -> to_int (x < y) 
+        | Leq       -> to_int (x <= y) 
+        | Equal     -> to_int (x == y) 
+        | Geq       -> to_int (x >= y) 
+        | Greater   -> to_int (x > y) 
+        | Neq       -> to_int (x != y) 
+        | _         -> assert false
+      in
+      (state, result::stack', input, output)
+    in
 
     match code with
     | []       -> output
     | i::code' ->
-       srun'
+       stack_run'
          (match i with
-          | S_READ  ->
+          | S_READ    ->
               let y::input' = input in
               (state, y::stack, input', output)
-          | S_WRITE ->
+          | S_WRITE   ->
               let y::stack' = stack in
               (state, stack', input, output @ [y])
-          | S_PUSH n ->
+          | S_PUSH n  ->
               (state, n::stack, input, output)
-          | S_LD x  ->
+          | S_LD x    ->
               (state, (List.assoc x state)::stack, input, output)
-          | S_ST x  ->
+          | S_ST x    ->
               let y::stack' = stack in
               ((x, y)::state, stack', input, output)
-          | S_NOT   ->
-              let y::stack' = stack in
-              let z = to_int (not (to_bool y)) in
-              (state, z::stack', input, output)
-          | S_ADD   ->
-              let y::x::stack' = stack in
-              (state, (x+y)::stack', input, output)
-          | S_SUB   ->
-              let y::x::stack' = stack in
-              (state, (x - y)::stack', input, output)
-          | S_MUL   ->
-              let y::x::stack' = stack in
-              (state, (x * y)::stack', input, output)
-          | S_DIV   ->
-              let y::x::stack' = stack in
-              (state, (x / y)::stack', input, output)
-          | S_MOD   ->
-              let y::x::stack' = stack in
-              (state, (x mod y)::stack', input, output)
-          | S_AND   ->
-              let y::x::stack' = stack in
-              let z = to_int (to_bool x && to_bool y) in
-              (state, z::stack', input, output)
-          | S_OR    ->
-              let y::x::stack' = stack in
-              let z = to_int (to_bool x || to_bool y) in
-              (state, z::stack', input, output)
-          | S_LESS  ->
-              let y::x::stack' = stack in
-              let z = to_int (x < y) in
-              (state, z::stack', input, output)
-          | S_LEQ    ->
-              let y::x::stack' = stack in
-              let z = to_int (x <= y) in
-              (state, z::stack', input, output)
-          | S_EQUAL ->
-              let y::x::stack' = stack in
-              let z = to_int (x == y) in
-              (state, z::stack', input, output)
-          | S_GEQ   ->
-              let y::x::stack' = stack in
-              let z = to_int (x >= y) in
-              (state, z::stack', input, output)
-          | S_GREATER ->
-              let y::x::stack' = stack in
-              let z = to_int (x > y) in
-              (state, z::stack', input, output)
-          | S_NEQ     ->
-              let y::x::stack' = stack in
-              let z = to_int (x != y) in
-              (state, z::stack', input, output)
+          | S_UNARY_OPERATION   op  -> run_unary_operation op
+          | S_BINARY_OPERATION  op  -> run_binary_operation op
+          | S_COMPARISON        op  -> run_comparison op
+          | _                       -> assert false 
          )
          code'
   in
-  srun' ([], [], input, []) code
+  stack_run' ([], [], input, []) code
 
-let rec compile_expr expr =
-  match expr with
-  | Var     x       -> [S_LD   x]
-  | Const   n       -> [S_PUSH n]
-  | Not     x       -> compile_expr x @ [S_NOT]
-  | Add     (l, r)  -> compile_expr l @ compile_expr r @ [S_ADD]
-  | Sub     (l, r)  -> compile_expr l @ compile_expr r @ [S_SUB]
-  | Mul     (l, r)  -> compile_expr l @ compile_expr r @ [S_MUL]
-  | Div     (l, r)  -> compile_expr l @ compile_expr r @ [S_DIV]
-  | Mod     (l, r)  -> compile_expr l @ compile_expr r @ [S_MOD]
-  | And     (l, r)  -> compile_expr l @ compile_expr r @ [S_AND]
-  | Or      (l, r)  -> compile_expr l @ compile_expr r @ [S_OR]
-  | Less    (l, r)  -> compile_expr l @ compile_expr r @ [S_LESS]
-  | Leq     (l, r)  -> compile_expr l @ compile_expr r @ [S_LEQ]
-  | Equal   (l, r)  -> compile_expr l @ compile_expr r @ [S_EQUAL]
-  | Geq     (l, r)  -> compile_expr l @ compile_expr r @ [S_GEQ]
-  | Greater (l, r)  -> compile_expr l @ compile_expr r @ [S_GREATER]
-  | Neq     (l, r)  -> compile_expr l @ compile_expr r @ [S_NEQ]
+let rec compile_expression expression =
+  match expression with
+  | Var             x       -> [S_LD   x]
+  | Const           n       -> [S_PUSH n]
+  | UnaryOperation  op x    -> compile_expression x @ [S_UNARY_OPERATION op]
+  | BinaryOperation op l r  -> compile_expression l @ compile_expression r @ [S_BINARY_OPERATION op]
+  | Comparison      op l r  -> compile_expression l @ compile_expression r @ [S_COMPARISON op]
 
-let rec compile_stmt stmt =
-  match stmt with
+let rec compile_statement statement =
+  match statement with
   | Skip          -> []
-  | Assign (x, e) -> compile_expr e @ [S_ST x]
+  | Assign (x, e) -> compile_expression e @ [S_ST x]
   | Read    x     -> [S_READ; S_ST x]
-  | Write   e     -> compile_expr e @ [S_WRITE]
-  | Seq    (l, r) -> compile_stmt l @ compile_stmt r
+  | Write   e     -> compile_expression e @ [S_WRITE]
+  | Seq    (l, r) -> compile_statement l @ compile_statement r
 
 let x86regs = [|"%esp"; "%ebp"; "%eax"; "%edx"; "%ecx"; "%ebx"; "%esi"; "%edi"|]
 let num_of_regs = Array.length x86regs
@@ -236,111 +215,108 @@ let allocate stack =
   | (R n)::_ when n < num_of_regs-1 -> R (n+1)
   | _                               -> S 0
 
-type x86instr = (* src -> dest *)
-  | X86Not    of opnd
-  | X86Add    of opnd * opnd
-  | X86Sub    of opnd * opnd
-  | X86Mul    of opnd * opnd
-  | X86Div    of opnd
-  | X86And    of opnd * opnd
-  | X86Or     of opnd * opnd
-  | X86Mov    of opnd * opnd
-  | X86Cmp    of opnd * opnd
-  | X86Push   of opnd
-  | X86Pop    of opnd
+type x86instruction =
   | X86Ret
-  | X86Call   of string
-  | X86Label  of int
-  | X86Jl     of int
-  | X86Jle    of int
-  | X86Je     of int
-  | X86Jge    of int
-  | X86Jg     of int
-  | X86Jne    of int
+  | X86Div
+  | X86Mov              of opnd * opnd
+  | X86Cmp              of opnd * opnd
+  | X86Push             of opnd
+  | X86Pop              of opnd
+  | X86Call             of string
+  | X86Label            of int
+  | X86Jump             of operation * int
+  | X86UnaryOperation   of operation * opnd
+  | X86BinaryOperation  of operation * opnd * opnd
 
-let x86compile : instr list -> x86instr list = fun code ->
+let x86compile : instruction list -> x86instruction list = fun code ->
   let x86addStack s =
     match s with
-    | S _ -> [X86Sub (L word_size, x86esp)]
+    | S _ -> [X86BinaryOperation (Sub, L word_size, x86esp)]
     | _   -> []
   in
   
   let x86subStack s =
     match s with
-    | S _ -> [X86Add (L word_size, x86esp)]
+    | S _ -> [X86BinaryOperation (Add, L word_size, x86esp)]
     | _   -> []
   in
 
+  let check_stack stack   =
+    match stack with
+    | []        -> assert false
+    | x::stack' -> stack
+  in
+
+  let check_stack_2 stack = 
+    match stack with
+    | [] | _::[]    -> assert false
+    | y::x::stack'  -> stack
+  in
+
   let rec x86compile' stack code label =
-    let cmp_pattern x86i stack code label =
-      let y::x::stack' = stack in
-      let res =   
+    let compile_comparison operation stack code label =
+      let y::x::stack' = сheck_stack_2 stack in
+      let result =   
         match x with
-        | R _ -> (x::stack', [X86Cmp (y, x); X86Mov (L 1, x); x86i label; X86Mov (L 0, x); X86Label label] @ x86subStack y, label)
-        | _   -> (x::stack', [X86Mov (x, x86eax); X86Cmp (y, x86eax); X86Mov (L 1, x86eax); x86i label; X86Mov (L 0, x86eax); X86Label label] @ x86subStack y, label)
-      in res 
+        | R _ -> (x::stack', [X86Cmp (y, x); X86Mov (L 1, x); X86Jump (operation, label); X86Mov (L 0, x); X86Label label] @ x86subStack y, label)
+        | _   -> (x::stack', [X86Mov (x, x86eax); X86Cmp (y, x86eax); X86Mov (L 1, x86eax); X86Jump (operation, label); X86Mov (L 0, x86eax); X86Label label] @ x86subStack y, label)
+      in 
+      result 
     in
-    
-    let bin_pattern x86i stack code label =
-      let y::x::stack' = stack in
-      let res = 
+
+    let compile_binary_operation operation stack code label = 
+      let y::x::stack' = сheck_stack_2 stack in
+      let result = 
         match x with
-        | R _ -> (x::stack', [x86i y x] @ x86subStack y, label)
-        | _   -> (x::stack', [X86Mov (x, x86eax); x86i y x86eax; X86Mov (x86eax, x)] @ x86subStack y, label)
-      in res
+        | R _ -> (x::stack', [X86BinaryOperation operation y x] @ x86subStack y, label)
+        | _   -> (x::stack', [X86Mov (x, x86eax); X86BinaryOperation operation y x86eax; X86Mov (x86eax, x)] @ x86subStack y, label)
+      in 
+      result
+
+    let compile_unary_operation operation stack code label =
+      let x::stack' = check_stack stack in
+      (stack, [X86UnaryOperation (operation, x)], label)
     in
 
     match code with
     | []       -> []
     | i::code' ->
-        let (stack', x86code, label') =
-         match i with
-         | S_READ     ->
-           let s = allocate stack in
-           (s::stack, [X86Call "read"; X86Mov (x86eax, s)] @ x86addStack s, label)
-         | S_WRITE    ->
-           let s::stack' = stack in
-           (stack', [X86Push s; X86Call "write"] @ x86subStack (S 0) @ x86subStack s, label)
-         | S_PUSH n   ->
-           let s = allocate stack in
-           (s::stack, [X86Mov (L n, s)] @ x86addStack s, label)
-         | S_LD x     ->
-           let s = allocate stack in
-           let res = 
-             match s with
-             | R _ -> (s::stack, [X86Mov (M x, s)], label)
-					   | _   -> (s::stack, [X86Mov (M x, x86eax); X86Mov (x86eax, s); X86Sub (L word_size, x86esp)], label)
-					 in res
-         | S_ST x     ->
-           let s::stack' = stack in
-           let res = 
-             match s with
-             | R _ -> (stack', [X86Mov (s, M x)], label)
-             | _   -> (stack', [X86Mov (s, x86eax); X86Mov(x86eax, M x); X86Add (L word_size, x86esp)], label)
-           in res
-         | S_NOT      ->
-           let x::stack' = stack in
-           (stack, [X86Not x], label)
-         | S_ADD      -> bin_pattern (fun x y -> X86Add (x, y)) stack code label
-         | S_SUB      -> bin_pattern (fun x y -> X86Sub (x, y)) stack code label
-         | S_MUL      -> bin_pattern (fun x y -> X86Mul (x, y)) stack code label
-         | S_DIV      -> 
-           let y::x::stack' = stack in
-           (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86eax, x)], label)
-         | S_MOD      ->
-           let y::x::stack' = stack in
-           (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86edx, x)], label)
-         | S_AND      -> bin_pattern (fun x y -> X86And (x, y)) stack code label
-         | S_OR       -> bin_pattern (fun x y -> X86Or (x, y)) stack code label
-         | S_LESS     -> cmp_pattern (fun x -> X86Jl x)   stack code (label + 1)
-         | S_LEQ      -> cmp_pattern (fun x -> X86Jle x)  stack code (label + 1)
-         | S_EQUAL    -> cmp_pattern (fun x -> X86Je x)   stack code (label + 1)
-         | S_GEQ      -> cmp_pattern (fun x -> X86Jge x)  stack code (label + 1)
-         | S_GREATER  -> cmp_pattern (fun x -> X86Jg x)   stack code (label + 1)
-         | S_NEQ      -> cmp_pattern (fun x -> X86Jne x)  stack code (label + 1)
+      let (stack', x86code, label') =
+        match i with
+        | S_READ     ->
+          let s = allocate stack in
+          (s::stack, [X86Call "read"; X86Mov (x86eax, s)] @ x86addStack s, label)
+        | S_WRITE    ->
+          let s::stack' = check_stack stack in
+          (stack', [X86Push s; X86Call "write"] @ x86subStack (S 0) @ x86subStack s, label)
+        | S_PUSH n   ->
+          let s = allocate stack in
+          (s::stack, [X86Mov (L n, s)] @ x86addStack s, label)
+        | S_LD x     ->
+          let s = allocate stack in
+          let result = 
+            match s with
+            | R _ -> (s::stack, [X86Mov (M x, s)], label)
+            | _   -> (s::stack, [X86Mov (M x, x86eax); X86Mov (x86eax, s); X86BinaryOperation (Sub, L word_size, x86esp)], label)
+				  in result
+        | S_ST x     ->
+          let s::stack' = check_stack stack in
+          let result = 
+            match s with
+            | R _ -> (stack', [X86Mov (s, M x)], label)
+            | _   -> (stack', [X86Mov (s, x86eax); X86Mov(x86eax, M x); X86BinaryOperation (Add, L word_size, x86esp)], label)
+          in result
+        | S_UNARY_OPERATION op    -> compile_unary_operation op stack code label
+        | S_BINARY_OPERATION Div  ->
+          let y::x::stack' = сheck_stack_2 stack in
+          (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86eax, x)], label)
+        | S_BINARY_OPERATION Mod  ->
+          let y::x::stack' = сheck_stack_2 stack in
+          (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86edx, x)], label)
+        | S_BINARY_OPERATION  op  -> compile_binary_operation op stack code label
+        | S_COMPARISON        op  -> compile_comparison op stack code (label + 1)
        in
        x86code @ x86compile' stack' code' label'
   in
-  (*store stack base in %rbx*)
   (X86Mov (x86esp, x86ebp))::x86compile' [] code 0
 
