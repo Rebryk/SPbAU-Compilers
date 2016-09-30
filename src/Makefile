@@ -209,7 +209,7 @@ target_vendor = pc
 SUBDIRS = 
 
 # type in sources here
-SOURCES = Expr.ml Parser.ml Driver.ml
+SOURCES = Types.ml Parser.ml Driver.ml X86Compiler.ml StackInterpreter.ml Interpreter.ml
 MLI = 
 
 # define macros that creates directiries
