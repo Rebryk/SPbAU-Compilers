@@ -1,3 +1,5 @@
+module SS = Set.Make(String)
+
 open Types
 
 let rec collect_vars statement =

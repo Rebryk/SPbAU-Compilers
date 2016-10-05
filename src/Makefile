@@ -67,11 +67,11 @@ ETAGS = etags
 CTAGS = ctags
 DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /home/me/sample-compiler/config/missing --run aclocal-1.9
-AMTAR = ${SHELL} /home/me/sample-compiler/config/missing --run tar
-AUTOCONF = ${SHELL} /home/me/sample-compiler/config/missing --run autoconf
-AUTOHEADER = ${SHELL} /home/me/sample-compiler/config/missing --run autoheader
-AUTOMAKE = ${SHELL} /home/me/sample-compiler/config/missing --run automake-1.9
+ACLOCAL = aclocal-1.15
+AMTAR = $${TAR-tar}
+AUTOCONF = autoconf
+AUTOHEADER = autoheader
+AUTOMAKE = automake-1.15
 AWK = gawk
 BFLAGS = $(AM_BFLAGS)
 CAMLP4 = camlp4
@@ -102,12 +102,12 @@ HAVE_OCAMLFIND_TRUE =
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
-INSTALL_STRIP_PROGRAM = ${SHELL} $(install_sh) -c -s
+INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LIBOBJS = 
 LIBS = 
 LOG = 
 LTLIBOBJS = 
-MAKEINFO = ${SHELL} /home/me/sample-compiler/config/missing --run makeinfo
+MAKEINFO = makeinfo
 META = /usr/local/lib/ocaml/site-lib/ostap/META
 MINGW32_FALSE = 
 MINGW32_TRUE = #
@@ -143,8 +143,8 @@ STRIP =
 VERSION = 
 ac_aux_dir = config
 am__leading_dot = .
-am__tar = ${AMTAR} chof - "$$tardir"
-am__untar = ${AMTAR} xf -
+am__tar = $${TAR-tar} chof - "$$tardir"
+am__untar = $${TAR-tar} xf -
 bindir = ${exec_prefix}/bin
 build = i686-pc-linux-gnu
 build_alias = 
@@ -186,13 +186,13 @@ host_vendor = pc
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = /home/me/sample-compiler/config/install-sh
+install_sh = ${SHELL} /home/me/sample-compiler/config/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
 localstatedir = ${prefix}/var
 mandir = ${datarootdir}/man
-mkdir_p = mkdir -p --
+mkdir_p = $(MKDIR_P)
 oldincludedir = /usr/include
 pdfdir = ${docdir}
 prefix = /usr/local
@@ -209,7 +209,7 @@ target_vendor = pc
 SUBDIRS = 
 
 # type in sources here
-SOURCES = Types.ml Parser.ml Driver.ml X86Compiler.ml StackInterpreter.ml Interpreter.ml
+SOURCES = Types.ml Interpreter.ml StackInterpreter.ml X86Compiler.ml Parser.ml Driver.ml
 MLI = 
 
 # define macros that creates directiries
@@ -283,9 +283,9 @@ PXFLAGS = $(P5FLAGS)
 CAMLPXLIB = $(CAMLP5LIB)
 
 # bytecode compiling flags
-AM_BFLAGS = $(MODULE_INCLUDES) $(DEBUG) -rectypes -annot
+AM_BFLAGS = $(MODULE_INCLUDES) $(DEBUG) -rectypes -annot -warn-error +8
 # native (optimized) compiling flags
-AM_OFLAGS = $(MODULE_INCLUDES) -rectypes -annot
+AM_OFLAGS = $(MODULE_INCLUDES) -rectypes -annot -warn-error +8
 
 # extra .cmi to delete those are generated from .ml
 CLEAN_CMI := $(CMO:.cmo=.cmi)

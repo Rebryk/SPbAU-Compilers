@@ -1,5 +1,3 @@
-module SS = Set.Make(String)
-
 type operation =
   | Not
   | Add 
@@ -30,22 +28,6 @@ type statement =
   | Assign of string * expression
   | Seq    of statement * statement
 
-let rec collect_vars statement =
-  let rec collect_vars_expression expression =
-    match expression with
-    | Const           _         -> SS.empty
-    | Var             s         -> SS.singleton s
-    | UnaryOperation  (_, x)    -> collect_vars_expression x 
-    | BinaryOperation (_, l, r) -> SS.union (collect_vars_expression l) (collect_vars_expression r)
-    | Comparison      (_, l, r) -> SS.union (collect_vars_expression l) (collect_vars_expression r)
-  in
-  match statement with
-  | Skip            -> SS.empty
-  | Seq     (l, r)  -> SS.union (collect_vars l) (collect_vars r)
-  | Assign  (x, e)  -> SS.union (SS.singleton x) (collect_vars_expression e)
-  | Write   e       -> collect_vars_expression e
-  | Read    x       -> SS.singleton x
-
 type stack_instruction = 
   | S_READ
   | S_WRITE
@@ -55,6 +37,8 @@ type stack_instruction =
   | S_UNARY_OPERATION   of operation
   | S_BINARY_OPERATION  of operation
   | S_COMPARISON        of operation 
+
+type opnd = R of int | S of int | M of string | L of int
 
 type x86instruction =
   | X86Ret
@@ -69,5 +53,4 @@ type x86instruction =
   | X86UnaryOperation   of operation * opnd
   | X86BinaryOperation  of operation * opnd * opnd
 
-type opnd = R of int | S of int | M of string | L of int
 
