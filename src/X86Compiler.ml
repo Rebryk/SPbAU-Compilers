@@ -20,13 +20,22 @@ let rec collect_vars statement =
   | Read    x       -> SS.singleton x
 
 let x86regs = [|"%esp"; "%ebp"; "%eax"; "%edx"; "%ecx"; "%ebx"; "%esi"; "%edi"|]
+let x86small_regs = [|"%al"; "%dl"; "%bl"; "%cl"|]
+
 let num_of_regs = Array.length x86regs
+let num_of_small_regs = Array.length x86small_regs
+
 let word_size = 4
 
 let x86esp = R 0
 let x86ebp = R 1
 let x86eax = R 2
 let x86edx = R 3
+
+let x86al = S_R 0
+let x86dl = S_R 1
+let x86bl = S_R 2 
+let x86cl = S_R 3
 
 let allocate stack =
   match stack with
@@ -69,6 +78,15 @@ let x86compile : stack_instruction list -> x86instruction list = fun code ->
           | R _ -> (x::stack', [X86BinaryOperation (operation, y, x)] @ x86subStack y, label)
           | _   -> (x::stack', [X86Mov (x, x86eax); X86BinaryOperation (operation, y, x86eax); X86Mov (x86eax, x)] @ x86subStack y, label)
         in result
+    in
+    
+    let compile_logical operation stack code label =
+      match stack with
+      | [] | _::[]    -> assert false
+      | y::x::stack'  ->
+        let to_bool x = [X86Mov (x, x86eax); X86Cmp (L 0, x86eax); X86Mov (L 0, x86eax); X86Setne x86al; X86Mov (x86eax, x)] in
+        let (stack', code', label') = compile_binary_operation operation stack code label in
+        (stack', to_bool x @ to_bool y @ code', label')
     in
 
     let compile_unary_operation operation stack code label =
@@ -125,6 +143,8 @@ let x86compile : stack_instruction list -> x86instruction list = fun code ->
             | [] | _::[]    -> assert false
             | y::x::stack'  -> (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86edx, x)], label)
           in result
+        | S_BINARY_OPERATION  Or  -> compile_logical Or stack code label
+        | S_BINARY_OPERATION  And -> compile_logical And stack code label
         | S_BINARY_OPERATION  op  -> compile_binary_operation op stack code label
         | S_COMPARISON        op  -> compile_comparison op stack code (label + 1)
        in
@@ -134,10 +154,11 @@ let x86compile : stack_instruction list -> x86instruction list = fun code ->
 
 let rec pr_op opnd =
   match opnd with
-  | R n -> x86regs.(n)
-  | S o -> Printf.sprintf "%d(%s)" ((-4) * o) (pr_op x86ebp)
-  | M s -> s
-  | L n -> Printf.sprintf "$%d" n
+  | S_R n -> x86small_regs.(n)
+  | R n   -> x86regs.(n)
+  | S o   -> Printf.sprintf "%d(%s)" ((-4) * o) (pr_op x86ebp)
+  | M s   -> s
+  | L n   -> Printf.sprintf "$%d" n
 
 let gen_asm p name =
   let vars = collect_vars p in
@@ -168,6 +189,7 @@ let gen_asm p name =
     | X86Jump   (Geq, n)                -> Printf.fprintf outf "\tJGE\tlabel%d\n" n
     | X86Jump   (Greater, n)            -> Printf.fprintf outf "\tJG\tlabel%d\n" n
     | X86Jump   (Neq, n)                -> Printf.fprintf outf "\tJNE\tlabel%d\n" n
+    | X86Setne  o1                      -> Printf.fprintf outf "\tSETNE\t%s\n" (pr_op o1)
     | _                                 -> assert false
   ) code;
   Printf.fprintf outf "\tXORL\t%s,\t%s\nRET\n\n" (pr_op x86eax) (pr_op x86eax);

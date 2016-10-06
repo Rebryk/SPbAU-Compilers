@@ -3,7 +3,7 @@ open X86Compiler
 
 let build code name = 
   gen_asm code (Printf.sprintf "%s.S" name);
-  Sys.command (Printf.sprintf "gcc -m32 -o %s ../runtime/runtime.o %s.S" name name)
+  Sys.command (Printf.sprintf "gcc -m32 -o %s ../../runtime/runtime.o %s.S" name name)
 
 let _ = 
   try

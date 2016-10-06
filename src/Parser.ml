@@ -12,7 +12,7 @@ ostap (
     l:op3 tail:("&&" r:op3)* {List.fold_left (fun l (op, r) -> BinaryOperation (And, l, r)) l tail};
 
   op3:
-    l:op2 tail:(("<" | "<=" | "==" | "!=" | ">=" | ">") r:op2)* {
+    l:op2 tail:(("<=" | "<" | "==" | "!=" | ">=" | ">") r:op2)* {
       List.fold_left
       (fun l (operation, r) ->
         match operation with

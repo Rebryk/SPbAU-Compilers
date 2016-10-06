@@ -38,10 +38,11 @@ type stack_instruction =
   | S_BINARY_OPERATION  of operation
   | S_COMPARISON        of operation 
 
-type opnd = R of int | S of int | M of string | L of int
+type opnd = S_R of int | R of int | S of int | M of string | L of int
 
 type x86instruction =
   | X86Ret
+  | X86Setne            of opnd
   | X86Div              of opnd
   | X86Mov              of opnd * opnd
   | X86Cmp              of opnd * opnd
