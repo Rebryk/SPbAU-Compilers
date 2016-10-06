@@ -6,11 +6,10 @@ ostap (
   expression: op5;
   
   op5:
-    l:op4 tail:("||" r:op4)* {List.fold_left (fun l (_, r) -> BinaryOperation (Or, l, r)) l tail};
+    l:op4 tail:("!!" r:op4)* {List.fold_left (fun l (op, r) -> BinaryOperation (Or, l, r)) l tail};
 
   op4:
-    l:op3 tail:("&&" r:op3)* {List.fold_left (fun l (_, r) -> BinaryOperation (And, l, r)) l tail};
-
+    l:op3 tail:("&&" r:op3)* {List.fold_left (fun l (op, r) -> BinaryOperation (And, l, r)) l tail};
 
   op3:
     l:op2 tail:(("<" | "<=" | "==" | "!=" | ">=" | ">") r:op2)* {
@@ -24,8 +23,7 @@ ostap (
         | (">=", _) -> Comparison (Geq,       l, r)
         | (">", _)  -> Comparison (Greater,   l, r)
         | _         -> assert false)
-      l tail
-    };
+      l tail}; 
 
   op2:
     l:op1 tail:(("+" | "-") r:op1)* {
@@ -35,11 +33,10 @@ ostap (
         | ("+", _)  -> BinaryOperation (Add, l, r)
         | ("-", _)  -> BinaryOperation (Sub, l, r)
         | _         -> assert false)
-      l tail
-    };
+      l tail};
 
   op1:
-    l:op0 tail:(("*" | "/" | "%") r:op1)* {
+    l:primary tail:(("*" | "/" | "%") r:primary)* {
       List.fold_left 
       (fun l (operation, r) ->
         match operation with
@@ -47,13 +44,9 @@ ostap (
         | ("/", _)  -> BinaryOperation (Div, l, r)
         | ("%", _)  -> BinaryOperation (Mod, l, r)
         | _         -> assert false)
-      l tail
-    };
+      l tail}
+    | primary; 
 
-  op0:
-    -"!" x:primary  {UnaryOperation (Not, x)}
-   | primary;
-    
   primary:
     c:DECIMAL   { Const  c }
     | x:IDENT   { Var    x }
