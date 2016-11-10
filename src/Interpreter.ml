@@ -28,11 +28,25 @@ let run input statement =
   let rec run' ((state, input, output) as c) statement =
     let state' x = List.assoc x state in
     match statement with
-    | Skip            -> c
-    | Seq     (l, r)  -> run' (run' c l) r
-    | Assign  (x, e)  -> ((x, evaluate state' e) :: state, input, output)
-    | Write   e       -> (state, input, output @ [evaluate state' e])
-    | Read    x       ->
+    | Skip              -> c
+    | Seq     (l, r)    -> run' (run' c l) r
+    | Assign  (x, e)    -> ((x, evaluate state' e) :: state, input, output)
+    | Write   e         -> (state, input, output @ [evaluate state' e])
+    | If      (e, l, r) -> 
+      let value = evaluate state' e in
+      let result = 
+        match value with
+        | 0 -> run' c r
+        | _ -> run' c l
+      in result
+    | While   (e, m)    ->
+      let value = evaluate state' e in
+      let result = 
+        match value with
+        | 0 -> c
+        | _ -> run' (run' c m) statement
+      in result
+    | Read    x         ->
       let result = 
         match input with
         | []        -> assert false

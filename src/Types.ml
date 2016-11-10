@@ -27,6 +27,8 @@ type statement =
   | Write  of expression
   | Assign of string * expression
   | Seq    of statement * statement
+  | If     of expression * statement * statement
+  | While  of expression * statement
 
 type stack_instruction = 
   | S_READ
@@ -37,6 +39,10 @@ type stack_instruction =
   | S_UNARY_OPERATION   of operation
   | S_BINARY_OPERATION  of operation
   | S_COMPARISON        of operation 
+  | S_LABEL             of int
+  | S_JUMP              of int
+  | S_ZJUMP             of int
+  | S_NZJUMP            of int
 
 type opnd = S_R of int | R of int | S of int | M of string | L of int
 

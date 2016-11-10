@@ -1,6 +1,39 @@
 open Types
 
+let rec print_code code = 
+  let print_inst inst =
+    match inst with
+    | S_JUMP l    -> Printf.printf "S_JUMP %d\n" l
+    | S_ZJUMP l   -> Printf.printf "S_ZJUMP %d\n" l
+    | S_NZJUMP l  -> Printf.printf "S_NZJUMP %d\n" l
+    | S_READ      -> Printf.printf "S_READ\n"
+    | S_WRITE     -> Printf.printf "S_WRITE\n"
+    | S_PUSH n    -> Printf.printf "S_PUSH %d\n" n
+    | S_LD  x     -> Printf.printf "S_LD %s\n" x
+    | S_ST  x     -> Printf.printf "S_ST %s\n" x
+    | S_LABEL l   -> Printf.printf "S_LABEL %d\n" l
+    | _           -> Printf.printf "OTHER\n" 
+  in
+
+  let result = 
+    match code with
+    | [] -> Printf.printf ""
+    | x::code' ->
+      print_inst x;
+      print_code code'
+  in result
+
+  
 let stack_run input code =
+  let find_label label =
+    let rec find_label' code' = 
+      match code' with
+      | []                        -> assert false
+      | (S_LABEL label')::code''  -> if label' == label then code'' else find_label' code'' 
+      | _::code''                 -> find_label' code''
+    in find_label' code
+  in
+
   let rec stack_run' (state, stack, input, output) code =
     let to_bool x   = x != 0 in
     let to_int  x   = if x then 1 else 0 in
@@ -12,7 +45,7 @@ let stack_run input code =
         let result = 
           match operation with
           | Not   -> to_int (not (to_bool y))
-          | _       -> assert false
+          | _     -> assert false
         in (state, result::stack', input, output)
     in
 
@@ -52,7 +85,25 @@ let stack_run input code =
     in
 
     match code with
-    | []       -> output
+    | []                  -> output
+    | (S_JUMP l)::code'   ->
+      stack_run' (state, stack, input, output) (find_label l)
+    | (S_ZJUMP l)::code'  ->
+        (match stack with
+        | []        -> assert false
+        | x::stack' -> 
+          if x == 0 then 
+            stack_run' (state, stack', input, output) (find_label l) 
+          else 
+            stack_run' (state, stack', input, output) code')
+    | (S_NZJUMP l)::code' ->
+        (match stack with
+        | []        -> assert false
+        | x::stack' ->
+            if x != 0 then
+              stack_run' (state, stack', input, output) (find_label l)
+            else
+              stack_run' (state, stack', input, output) code')
     | i::code' ->
        stack_run'
          (match i with
@@ -81,7 +132,9 @@ let stack_run input code =
           | S_UNARY_OPERATION   op  -> run_unary_operation op
           | S_BINARY_OPERATION  op  -> run_binary_operation op
           | S_COMPARISON        op  -> run_comparison op
+          | S_LABEL             l   -> (state, stack, input, output)
+          | _                       -> assert false
          )
          code'
-  in
+  in  
   stack_run' ([], [], input, []) code

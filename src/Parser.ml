@@ -54,7 +54,13 @@ ostap (
 
   statement:
     s1:simple ";" s2:statement { Seq (s1, s2) }
-    | simple;
+    | c1:control_flow s2:statement { Seq (c1, s2) }
+    | simple
+    | control_flow;
+ 
+  control_flow:
+    %"if" e:expression %"then" l:statement %"else" r:statement %"fi" { If (e, l, r) }
+    | %"while" e:expression %"do" m:statement %"od" { While (e, m) };
 
   simple:
     %"read" "(" name:IDENT ")"        { Read   name   }
@@ -68,7 +74,7 @@ let parse input_file =
   Util.parse 
     (object
       inherit Matcher.t code
-      inherit Util.Lexers.ident ["read"; "write"; "skip"] code
+      inherit Util.Lexers.ident ["read"; "write"; "skip"; "while"; "do"; "od"; "if"; "then"; "else"; "fi"] code
       inherit Util.Lexers.decimal code
       inherit Util.Lexers.skip [
         Matcher.Skip.whitespaces " \t\n";

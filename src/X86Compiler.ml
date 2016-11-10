@@ -18,6 +18,7 @@ let rec collect_vars statement =
   | Assign  (x, e)  -> SS.union (SS.singleton x) (collect_vars_expression e)
   | Write   e       -> collect_vars_expression e
   | Read    x       -> SS.singleton x
+  | _               -> assert false
 
 let x86regs = [|"%esp"; "%ebp"; "%eax"; "%edx"; "%ecx"; "%ebx"; "%esi"; "%edi"|]
 let x86small_regs = [|"%al"; "%dl"; "%bl"; "%cl"|]
