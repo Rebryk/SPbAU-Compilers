@@ -3,7 +3,11 @@ open X86Compiler
 
 let build code name = 
   gen_asm code (Printf.sprintf "%s.S" name);
-  Sys.command (Printf.sprintf "gcc -m32 -o %s ../runtime/runtime.o %s.S" name name)
+  let runtime_dir = try 
+    Sys.getenv "RC_RUNTIME"
+    with Not_found -> "../runtime"
+  in
+  Sys.command (Printf.sprintf "gcc -m32 -o %s %s/runtime.o %s.S" name runtime_dir name)
 
 let _ = 
   try
@@ -11,7 +15,8 @@ let _ =
       match Sys.argv.(1) with
       | "-s"  -> `SM,  Sys.argv.(2)
       | "-o"  -> `X86, Sys.argv.(2)
-      | _     -> `Int, Sys.argv.(1)
+      | "-i"  -> `Int, Sys.argv.(2)
+      | _     -> assert false
     in
 
     match Parser.parse filename with

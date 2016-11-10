@@ -20,10 +20,10 @@ let rec compile_statement statement =
   | Write   e         -> compile_expression e @ [S_WRITE]
   | Seq    (l, r)     -> compile_statement l @ compile_statement r
   | If     (e, t, f)  -> 
-      let label_end   = counter() in
       let label_else  = counter() in
-      compile_expression e @ [S_ZJUMP label_else] @ compile_statement t @ [S_JUMP label_end; S_LABEL label_else] @ compile_statement f @ [S_LABEL label_end]
+      let label_end   = counter() in
+      compile_expression e @ [S_CJUMP ("Z", label_else)] @ compile_statement t @ [S_JUMP label_end; S_LABEL label_else] @ compile_statement f @ [S_LABEL label_end]
   | While  (e, t)     ->
       let label_code  = counter() in
       let label_cond  = counter() in
-      [S_JUMP label_cond; S_LABEL label_code] @ compile_statement t @ [S_LABEL label_cond] @ compile_expression e @ [S_NZJUMP label_code]
+      [S_JUMP label_cond; S_LABEL label_code] @ compile_statement t @ [S_LABEL label_cond] @ compile_expression e @ [S_CJUMP ("NZ", label_code)]

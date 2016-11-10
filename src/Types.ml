@@ -41,14 +41,13 @@ type stack_instruction =
   | S_COMPARISON        of operation 
   | S_LABEL             of int
   | S_JUMP              of int
-  | S_ZJUMP             of int
-  | S_NZJUMP            of int
+  | S_CJUMP             of string * int
 
 type opnd = S_R of int | R of int | S of int | M of string | L of int
 
 type x86instruction =
   | X86Ret
-  | X86Setne            of opnd
+  | X86Set              of operation * opnd
   | X86Div              of opnd
   | X86Mov              of opnd * opnd
   | X86Cmp              of opnd * opnd
@@ -56,7 +55,7 @@ type x86instruction =
   | X86Pop              of opnd
   | X86Call             of string
   | X86Label            of int
-  | X86Jump             of operation * int
+  | X86Jump             of string * int
   | X86UnaryOperation   of operation * opnd
   | X86BinaryOperation  of operation * opnd * opnd
 

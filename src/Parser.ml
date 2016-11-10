@@ -12,7 +12,7 @@ ostap (
     l:op3 tail:("&&" r:op3)* {List.fold_left (fun l (op, r) -> BinaryOperation (And, l, r)) l tail};
 
   op3:
-    l:op2 tail:(("<=" | "<" | "==" | "!=" | ">=" | ">") r:op2)* {
+    l:op2 tail:(("==" | "!=" | "<=" | "<" | ">=" | ">") r:op2)* {
       List.fold_left
       (fun l (operation, r) ->
         match operation with
@@ -54,13 +54,16 @@ ostap (
 
   statement:
     s1:simple ";" s2:statement { Seq (s1, s2) }
-    | c1:control_flow s2:statement { Seq (c1, s2) }
-    | simple
-    | control_flow;
- 
+    | c1:control_flow -";" s2:statement { Seq (c1, s2) }
+    | control_flow
+    | simple;
+    
   control_flow:
     %"if" e:expression %"then" l:statement %"else" r:statement %"fi" { If (e, l, r) }
-    | %"while" e:expression %"do" m:statement %"od" { While (e, m) };
+    | %"if" e:expression %"then" l:statement %"fi" { If (e, l, Skip) }
+    | %"while" e:expression %"do" m:statement %"od" { While (e, m) }
+    | %"repeat" m:statement %"until" e:expression { Seq(m, While(e, m)) }
+    | %"for" s1:statement -"," e:expression -"," s2:statement %"do" m:statement %"od" { Seq(s1, While(e, Seq(m, s2))) };
 
   simple:
     %"read" "(" name:IDENT ")"        { Read   name   }
@@ -74,7 +77,7 @@ let parse input_file =
   Util.parse 
     (object
       inherit Matcher.t code
-      inherit Util.Lexers.ident ["read"; "write"; "skip"; "while"; "do"; "od"; "if"; "then"; "else"; "fi"] code
+      inherit Util.Lexers.ident ["read"; "write"; "skip"; "while"; "do"; "od"; "for"; "repeat"; "until"; "if"; "then"; "else"; "fi"] code
       inherit Util.Lexers.decimal code
       inherit Util.Lexers.skip [
         Matcher.Skip.whitespaces " \t\n";
