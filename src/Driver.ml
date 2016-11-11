@@ -19,7 +19,7 @@ let main = ()
       | _     -> assert false
     in
 
-    match Parser.parse filename with
+    match Parser.Parser.parse filename with
     | `Ok code ->
        (
          match mode with
@@ -35,11 +35,11 @@ let main = ()
 
             let input = read [] in
             let output = 
-              let code' = StackMachine.compile_statement code in
+              let code' = StackMachine.Compiler.compile_statement code in
           
               match mode with
-              | `SM -> StackMachine.stack_run input code'
-              | _   -> Interpreter.run input code
+              | `SM -> StackMachine.Interpreter.stack_run input code'
+              | _   -> Interpreter.Interpeter.run input code
             in
             List.iter (fun i -> Printf.printf "%d\n" i) output
        )
