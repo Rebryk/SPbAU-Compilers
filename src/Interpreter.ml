@@ -1,6 +1,9 @@
-open Types
+module Interpeter = 
+  struct
+  
+  open Language.Expr
 
-let rec evaluate state expression =
+  let rec evaluate state expression =
   let to_bool x = x != 0 in
   let to_int  x = if x then 1 else 0 in
 
@@ -54,4 +57,6 @@ let run input statement =
        in result
   in
   let (_, _, result) = run' ([], input, []) statement in
-  result
+  result  
+end
+

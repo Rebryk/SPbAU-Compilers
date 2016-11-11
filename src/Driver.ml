@@ -1,5 +1,5 @@
-open Types
-open X86Compiler
+open Language
+open X86
 
 let build code name = 
   gen_asm code (Printf.sprintf "%s.S" name);
@@ -9,7 +9,7 @@ let build code name =
   in
   Sys.command (Printf.sprintf "gcc -m32 -o %s %s/runtime.o %s.S" name runtime_dir name)
 
-let _ = 
+let main = ()
   try
     let mode, filename = 
       match Sys.argv.(1) with
@@ -19,7 +19,7 @@ let _ =
       | _     -> assert false
     in
 
-    match Parser.parse filename with
+    match Parser.Parser.parse filename with
     | `Ok code ->
        (
          match mode with
@@ -35,15 +35,15 @@ let _ =
 
             let input = read [] in
             let output = 
-              let code' = StackCompiler.compile_statement code in
-              (* let code' = [S_READ; S_ST "x"; S_PUSH 0; S_LABEL 2; S_WRITE; S_JUMP 1; S_LD "x"; S_WRITE] in*)
-
+              let code' = StackMachine.Compiler.compile_statement code in
+          
               match mode with
-              | `SM -> StackInterpreter.stack_run input code'
-              | _   -> Interpreter.run input code
+              | `SM -> StackMachine.Interpreter.stack_run input code'
+              | _   -> Interpreter.Interpeter.run input code
             in
             List.iter (fun i -> Printf.printf "%d\n" i) output
        )
     | `Fail er -> Printf.eprintf "%s" er
   with Invalid_argument _ ->
-    Printf.printf "Usage: rc.byte <name.exp>\n"
+      Printf.printf "Usage: rc.byte <command> <name.expr>\n";
+      Printf.printf "  <command> should be one of: -i, -s, -o\n"
