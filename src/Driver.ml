@@ -1,5 +1,5 @@
-open Types
-open X86Compiler
+open Language
+open X86
 
 let build code name = 
   gen_asm code (Printf.sprintf "%s.S" name);
@@ -35,10 +35,10 @@ let main = ()
 
             let input = read [] in
             let output = 
-              let code' = StackCompiler.compile_statement code in
+              let code' = StackMachine.compile_statement code in
           
               match mode with
-              | `SM -> StackInterpreter.stack_run input code'
+              | `SM -> StackMachine.stack_run input code'
               | _   -> Interpreter.run input code
             in
             List.iter (fun i -> Printf.printf "%d\n" i) output

@@ -1,7 +1,7 @@
 module SS = Set.Make(String)
 
-open Types
-open StackCompiler
+open Language
+open StackMachine
 
 let rec collect_vars statement =
   let rec collect_vars_expression expression =
