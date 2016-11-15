@@ -2,7 +2,7 @@ open Language
 open X86
 
 let build code name = 
-  gen_asm code (Printf.sprintf "%s.S" name);
+  X86Compiler.gen_asm code (Printf.sprintf "%s.S" name);
   let runtime_dir = try 
     Sys.getenv "RC_RUNTIME"
     with Not_found -> "../runtime"
