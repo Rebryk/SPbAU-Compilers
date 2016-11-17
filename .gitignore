@@ -1,1 +1,6 @@
-regression/*
+_build
+*.byte
+*.native
+*.o
+*.log
+*.s

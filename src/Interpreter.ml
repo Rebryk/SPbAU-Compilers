@@ -59,4 +59,3 @@ let run input statement =
   let (_, _, result) = run' ([], input, []) statement in
   result  
 end
-

@@ -69,7 +69,7 @@ module Parser =
       | %"for" s1:statement -"," e:expression -"," s2:statement %"do" m:statement %"od" { Seq(s1, While(e, Seq(m, s2))) };
 
     simple:
-      %"read" "(" name:IDENT ")"        { Read   name   }
+      name:IDENT ":=" %"read" "("  ")"  { Read   name   }
       | %"write" "(" e:expression ")"   { Write  e      }
       | %"skip"                         { Skip          }
       | x:IDENT ":=" e:expression       { Assign (x, e) }

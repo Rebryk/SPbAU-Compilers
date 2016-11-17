@@ -1,4 +1,2 @@
-read (x);
-read (y);
-z := x*y*3;
-write (z)
+x := read();
+write (2)
