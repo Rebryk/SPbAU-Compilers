@@ -138,7 +138,7 @@ module X86Compiler =
             let result = 
               match s with
               | R _ -> (s::stack, [X86Mov (M x, s)])
-              | _   -> (s::stack, [X86Mov (M x, x86eax); X86Mov (x86eax, s); X86BinaryOperation (Sub, L word_size, x86esp)])
+              | _   -> (s::stack, [X86Mov (M x, x86eax); X86Mov (x86eax, s)] @ x86addStack s)
             in result
           | S_ST x     ->
             let result = 
@@ -148,7 +148,7 @@ module X86Compiler =
                 let result = 
                   match s with
                   | R _ -> (stack', [X86Mov (s, M x)])
-                  | _   -> (stack', [X86Mov (s, x86eax); X86Mov(x86eax, M x); X86BinaryOperation (Add, L word_size, x86esp)])
+                  | _   -> (stack', [X86Mov (s, x86eax); X86Mov(x86eax, M x)] @ x86subStack s)
                 in result
             in result
           | S_UNARY_OPERATION op    -> compile_unary_operation op stack code
