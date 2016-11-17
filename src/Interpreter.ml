@@ -24,7 +24,7 @@ module Interpeter =
   | Comparison      (Geq,     l, r) -> to_int (evaluate state l >= evaluate state r)
   | Comparison      (Greater, l, r) -> to_int (evaluate state l > evaluate state r)
   | Comparison      (Neq,     l, r) -> to_int (evaluate state l != evaluate state r)
-  | _                               -> assert false
+  | _                               -> failwith "Unexpected expression type"
 
 
 let run input statement =
@@ -52,7 +52,7 @@ let run input statement =
     | Read    x         ->
       let result = 
         match input with
-        | []        -> assert false
+        | []        -> failwith "Unexpected end of stack"
         | y::input' -> ((x, y) :: state, input', output)
        in result
   in

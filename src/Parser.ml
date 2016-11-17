@@ -25,7 +25,7 @@ module Parser =
           | ("!=", _) -> Comparison (Neq,       l, r)
           | (">=", _) -> Comparison (Geq,       l, r)
           | (">", _)  -> Comparison (Greater,   l, r)
-          | _         -> assert false)
+          | _         -> failwith "Unexpected operator")
         l tail}; 
 
     op2:
@@ -35,7 +35,7 @@ module Parser =
           match operation with
           | ("+", _)  -> BinaryOperation (Add, l, r)
           | ("-", _)  -> BinaryOperation (Sub, l, r)
-          | _         -> assert false)
+          | _         -> failwith "Unexpected operator")
         l tail};
 
     op1:
@@ -46,7 +46,7 @@ module Parser =
           | ("*", _)  -> BinaryOperation (Mul, l, r)
           | ("/", _)  -> BinaryOperation (Div, l, r)
           | ("%", _)  -> BinaryOperation (Mod, l, r)
-          | _         -> assert false)
+          | _         -> failwith "Unexpected operator")
         l tail}
       | primary; 
 

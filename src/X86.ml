@@ -81,7 +81,7 @@ module X86Compiler =
     let rec x86compile' stack code =
       let compile_comparison operation stack code =
         match stack with
-        | [] | _::[]    -> assert false
+        | [] | _::[]    -> failwith "Unexpected end of stack"
         | y::x::stack'  ->
           let result =
             match x with
@@ -92,7 +92,7 @@ module X86Compiler =
 
       let compile_binary_operation operation stack code = 
         match stack with
-        | [] | _::[]    -> assert false
+        | [] | _::[]    -> failwith "Unexpected end of stack"
         | y::x::stack'  ->  
           let result = 
             match x with
@@ -103,7 +103,7 @@ module X86Compiler =
       
       let compile_logical operation stack code =
         match stack with
-        | [] | _::[]    -> assert false
+        | [] | _::[]    -> failwith "Unexpected end of stack"
         | y::x::stack'  ->
           let to_bool x = [X86Mov (x, x86eax); X86Cmp (L 0, x86eax); X86Mov(L 0, x86eax); X86Set (Neq, x86al); X86Mov (x86eax, x)] in
           let (stack', code') = compile_binary_operation operation stack code in
@@ -112,7 +112,7 @@ module X86Compiler =
 
       let compile_unary_operation operation stack code =
         match stack with
-        | []        -> assert false
+        | []        -> failwith "Unexpected end of stack"
         | x::stack' -> (stack, [X86UnaryOperation (operation, x)])
       in
 
@@ -127,7 +127,7 @@ module X86Compiler =
           | S_WRITE    ->
             let result = 
               match stack with
-              | []        -> assert false
+              | []        -> failwith "Unexpected end of stack"
               | s::stack' -> (stack', [X86Push s; X86Call "write"] @ x86subStack (S 0) @ x86subStack s)
             in result
           | S_PUSH n   ->
@@ -143,7 +143,7 @@ module X86Compiler =
           | S_ST x     ->
             let result = 
               match stack with
-              | []        -> assert false
+              | []        -> failwith "Unexpected end of stack"
               | s::stack' ->
                 let result = 
                   match s with
@@ -155,13 +155,13 @@ module X86Compiler =
           | S_BINARY_OPERATION Div  ->
             let result =
               match stack with
-              | [] | _::[]    -> assert false
+              | [] | _::[]    -> failwith "Unexpected end of stack"
               | y::x::stack'  -> (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86eax, x)])
             in result
           | S_BINARY_OPERATION Mod  ->
             let result =
               match stack with
-              | [] | _::[]    -> assert false
+              | [] | _::[]    -> failwith "Unexpected end of stack"
               | y::x::stack'  -> (x::stack', [X86Mov (x, x86eax); X86Div y; X86Mov (x86edx, x)])
             in result
           | S_BINARY_OPERATION  Or  -> compile_logical Or stack code
@@ -171,7 +171,7 @@ module X86Compiler =
           | S_JUMP            label -> (stack, [X86Jump ("", label)])
           | S_CJUMP   (cond, label) ->
              (match stack with
-             | []         -> assert false
+             | []         -> failwith "Unexpected end of stack"
              | s::stack'  -> (stack', [X86Mov (s, x86eax); X86Cmp (L 0, x86eax); X86Jump (cond, label)] @ x86subStack s))
           | S_LABEL           label -> (stack, [X86Label label])
          in
@@ -195,7 +195,7 @@ module X86Compiler =
      | Geq      -> "GE"
      | Greater  -> "G"
      | Neq      -> "NE"
-     | _        -> assert false
+     | _        -> failwith "Unexpected operation"
 
   let gen_asm p name =
     let vars = collect_vars p in
@@ -223,7 +223,7 @@ module X86Compiler =
       | X86Jump   ("", n)                 -> Printf.fprintf outf "\tJMP\tlabel%d\n" n
       | X86Jump   (cond, n)               -> Printf.fprintf outf "\tJ%s\tlabel%d\n" cond n
       | X86Set    (op, o1)                -> Printf.fprintf outf "\tSET%s\t%s\n" (pr_operation op) (pr_op o1)
-      | _                                 -> assert false
+      | _                                 -> failwith "Unexpected X86 operation"
     ) code;
     Printf.fprintf outf "\tXORL\t%s,\t%s\n\tLEAVE\nRET\n\n" (pr_op x86eax) (pr_op x86eax);
     SS.iter (fun var -> Printf.fprintf outf "\t.comm %s 4\n" var) vars;

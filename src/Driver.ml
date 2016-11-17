@@ -16,7 +16,7 @@ let main = ()
       | "-s"  -> `SM,  Sys.argv.(2)
       | "-o"  -> `X86, Sys.argv.(2)
       | "-i"  -> `Int, Sys.argv.(2)
-      | _     -> assert false
+      | _     -> failwith "Wrong parameter"
     in
 
     match Parser.Parser.parse filename with
